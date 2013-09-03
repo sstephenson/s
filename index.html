@@ -1,0 +1,195 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>S REPL</title>
+  <script type="text/javascript" src="s.js"></script>
+  <script type="text/javascript">
+    window.addEventListener("load", function() {
+      var interpreter = new S.Interpreter;
+      var outputEl = document.getElementById("output");
+      var inputEl = document.getElementById("input");
+
+      function log(type, string) {
+        var el = document.createElement("div");
+        el.className = type;
+        el.appendChild(document.createTextNode(string));
+        outputEl.appendChild(el);
+      }
+
+      function scrollToBottom() {
+        var children = outputEl.childNodes;
+        var child = children[children.length - 1];
+        window.scroll(0, child ? child.getBoundingClientRect().top : 0);
+      }
+
+      function disableInput() {
+        inputEl.disabled = "disabled";
+        inputEl.parentNode.className = "busy";
+      }
+
+      function enableInput() {
+        inputEl.disabled = null;
+        inputEl.parentNode.className = null;
+        inputEl.focus();
+      }
+
+      function resize() {
+        inputEl.style.height = measureContentHeight(inputEl) + "px";
+      }
+
+      function measureContentHeight(el) {
+        var dummy = document.createElement("div");
+        var bounds = el.getBoundingClientRect();
+        var css = window.getComputedStyle(inputEl, null).cssText +
+          "position: absolute; margin: 0; padding: 0; " +
+          "width: " + (bounds.right - bounds.left) + "px; " +
+          "height: auto; white-space: pre-wrap";
+        dummy.style.cssText = css;
+        var text = document.createTextNode("\uFEFF" + el.value + "\uFEFF");
+        dummy.appendChild(text);
+        document.body.appendChild(dummy);
+        bounds = dummy.getBoundingClientRect();
+        document.body.removeChild(dummy);
+        return bounds.bottom - bounds.top;
+      }
+
+      inputEl.addEventListener("input", resize);
+      inputEl.addEventListener("paste", resize);
+      inputEl.addEventListener("keypress", function(event) {
+        if (event.keyCode != 13 || event.shiftKey) return;
+        event.preventDefault();
+
+        var source = inputEl.value, program, result;
+        inputEl.value = "";
+        log("input", source);
+
+        try {
+          program = S.parse(source);
+        } catch (err) {
+          return log("error", "Parse error: " + err);
+        }
+
+        scrollToBottom();
+        if (!program.length) return;
+        disableInput();
+
+        interpreter.run(program, function(err, result) {
+          if (err) {
+            log("error", "Error: " + err);
+          } else {
+            log("output", result.inspect());
+          }
+
+          enableInput();
+          scrollToBottom();
+        });
+      }, true);
+
+      document.documentElement.addEventListener("mousedown", function(event) {
+        var target = event.target;
+        if (target == document.body || target == inputEl.parentNode) {
+          inputEl.focus();
+          event.preventDefault();
+        }
+      }, true);
+
+      log("output", "Environment: (" + interpreter.env.keys().sort().join(" ") + ")");
+    }, true);
+  </script>
+  <style type="text/css">
+    html {
+      cursor: text;
+    }
+
+    body {
+      margin: 0;
+      padding: 10px 54px 10px 30px;
+    }
+
+    #output {
+      position: relative;
+      margin: 0;
+      padding: 0;
+      white-space: pre-wrap;
+    }
+
+    #output div.input,
+    #output div.output {
+      margin-left: 24px;
+    }
+
+    #output div.input::before,
+    #output div.output::before {
+      display: inline-block;
+      margin-left: -24px;
+    }
+
+    #output div.input::before {
+      content: ">> ";
+    }
+
+    #output div.output::before {
+      content: "=> ";
+    }
+
+    #output div.error {
+      color: red;
+    }
+
+    #input-box {
+      position: relative;
+      font-family: monospace;
+      font-size: 13px;
+    }
+
+    #input-box::before {
+      position: absolute;
+      top: 0;
+      content: ">>";
+    }
+
+    @-webkit-keyframes rotate {
+      from { -webkit-transform: rotate(0deg) }
+      to   { -webkit-transform: rotate(360deg) }
+    }
+
+    #input-box.busy::before {
+      content: "✣";
+      -webkit-animation: rotate 800ms linear infinite;
+    }
+
+    #input {
+      position: absolute;
+      left: 0;
+      width: 100%;
+      height: 24ex;
+      font-family: monospace;
+      font-size: 13px;
+      border: none;
+      margin: 0 0 0 24px;
+      padding: 0;
+      resize: none;
+    }
+
+    #input:focus {
+      outline: none;
+    }
+
+    @media only screen and (max-device-width: 480px) {
+      body {
+        padding: 5px;
+      }
+
+      #input {
+        height: 6ex;
+      }
+    }
+  </style>
+</head>
+<body>
+  <pre id="output"></pre>
+  <div id="input-box"><textarea id="input" autofocus autocorrect="off" autocomplete="off" autocapitalize="off" spellcheck="false"></textarea></div>
+</body>
+</html>
